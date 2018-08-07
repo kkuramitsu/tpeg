@@ -8,7 +8,7 @@
 assume x,y,z: int
 assume x,y,z: double
 
-origami 
+origami
 '''
 
 class TypeSystem(object):
@@ -19,7 +19,7 @@ class TypeSystem(object):
 
     def typeName(self, name: str):
         if not name in self.nameMap:
-            ty = SimpleType(name, self)
+            ty = SimpleType(self, name)
             self.nameMap[name] = ty
         return self.nameMap[name]
 
@@ -114,24 +114,80 @@ class SyntaxMapper(object):
     def load(self, path):
         f = open(path, 'r')
         req = ()
+        key = None
+        fmt = None
+        inLines = False
         for line in f.readlines():
-            loc = line.find(' =')
-            if loc == -1:
-                if line.startswith("require"):
-                    req = tuple(line[7:].strip().split(','))
+            if line.startswith('#'):
                 continue
-            key = line[0: loc].strip()
-            types = None
-            fmt = line[loc+2:].strip()
+
+            if inLines:
+                if line.startswith("'''"):
+                    fmt = fmt.strip()
+                    inLines = False
+                else:
+                    fmt = fmt + line
+                    continue
+            else:
+                loc = line.find(' =')
+                if loc == -1:
+                    if line.startswith("require"):
+                        req = tuple(line[7:].strip().split(','))
+                    continue
+
+                fmt = line[loc+2:].strip()
+                key = line[0: loc].strip()
+                if fmt.endswith("'''"):
+                    inLines = True
+                    fmt = ""
+                    continue
+
             loc = key.find('::')
             if loc > 0:
                 types = self.loadType(key[loc+2:].strip())
                 key = key[0: loc].strip()
-            self.addFunc(key, types, fmt, req)
+                self.addFunc(key, types, fmt, req)
+            else:
+                self.addSyntax(key, fmt)
         f.close()
 
     def loadType(self, types):
-        return None
+        loc = types.find('->')
+        if loc > 0:
+            arg = types[:loc].strip()[1:-1].strip()
+            ret = types[loc+2:].strip()
+            return tuple(self.loadType2(arg) + self.loadType2(ret))
+
+        return tuple(self.loadType2(types) + [self.ts.typeName('void')])
+
+    def loadType2(self, types):
+        loc = types.find('(')
+        if loc == -1:
+            return list(map(lambda str: self.ts.typeName(str.strip()), types.split(',')))
+        else:
+            tyList = []
+            if loc != 0:
+                tyList += list(map(lambda str: self.ts.typeName(str.strip()), types[:loc].strip(', ').split(',')))
+
+            nested = 1
+            i = loc + 1
+            while i < len(types):
+                if types[i] == '(':
+                    nested += 1
+                elif types[i] == ')':
+                    nested -= 1
+                if nested == 0:
+                    break
+                i += 1
+
+            tyList += [tuple(self.loadType2(types[loc+1:i].strip()))]#TODO Tuple
+
+            if i + 1 != len(types):
+                tyList += self.loadType2(types[i+1:].strip(', '))
+
+            return tyList
+
+        #TODO: List, Data, Dict, Option
 
     def emit(self, e, ss):
         tag = e.syntaxKey()
@@ -346,4 +402,3 @@ ss = SourceSection()
 e = Infix(Val(1), '+', Val(123))
 sm.emit(e, ss)
 print('SS', str(ss))
-
