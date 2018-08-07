@@ -242,7 +242,8 @@ cTree = 12
 cLink = 13
 cFold = 14
 cUnit = 15
-cTAGs = 16
+cMeta = 16
+cTAGs = 17
 
 class TreeAs(Pe):
     __slots__ = ['ctag', 'tag', 'inner']
@@ -290,6 +291,25 @@ class Detree(Pe):
         self.inner = pe(inner)
     def __str__(self):
         return '@unit(' + str(self.inner) + ')'
+
+'''
+@if(Bool)
+@symbol(Indent)
+@match(Indent)
+@exists(Indent, 'hoge')
+'''
+
+class Meta(Pe):
+    __slots__ = ['ctag', 'tag', 'inner', 'opt']
+    def __init__(self, tag, inner, opt = None):
+        self.ctag = cMeta
+        self.tag = tag
+        self.inner = pe(inner)
+        self.opt = opt
+    def __str__(self):
+        arg = ', ' + repr(self.opt) if self.opt != None else ''
+        return self.tag + '(' + str(self.inner) + arg + ')'
+
 
 class ParserContext:
     __slots__ = ['inputs', 'pos', 'headpos', 'ast']

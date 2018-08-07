@@ -193,7 +193,6 @@ class SourceSection(object):
         index = 0
         start = 0
         i = 0
-        print('FMT', fmt)
         while i < len(fmt):
             c = fmt[i]
             i += 1
@@ -255,6 +254,19 @@ class SourceSection(object):
         #end while
         self.pushSTR(fmt[start:])
 
+### Envrionment
+
+class Env(object):
+    def __init__(self, parent = None):
+        self.parent = parent
+        self.vars = {}
+    def __getitem__(self, name):
+        if name in self.vars: return self.vars[name]
+        return self.parent[name] if self.parent is not None else None
+    def pop(self):
+        return self.parent
+
+
 ### SyntaxTree
 
 class SyntaxTree(object):
@@ -276,6 +288,8 @@ class Val(Expression):
         self.ty = None
     def args(self):
         return tuple([self.value])
+    def eval(self, env):
+        return self.value
 
 class Var(Expression):
     __slots__ = ['name', 'ty']
@@ -286,6 +300,8 @@ class Var(Expression):
         return self.name
     def args(self):
         return tuple([self.name])
+    def eval(self, env):
+        return env[self.name]
 
 class FuncCall(Expression):
     __slots__ = ['exprs', 'ty']
@@ -304,6 +320,15 @@ class Infix(Expression):
         return self.exprs[0]
     def args(self):
         return self.exprs
+    def eval(self, env):
+        fs = {
+            '+': lambda x, y: x + y,
+            '-': lambda x, y: x - y,
+            '*': lambda x, y: x * y,
+            '/': lambda x, y: x // y,
+            '%': lambda x, y: x % y,
+        }
+        return fs[self.exprs[0]](self.exprs[1].eval(env),self.exprs[2].eval(env))
 
 
 '''
